@@ -1,25 +1,85 @@
 /* style.css - visual tweaks */
-body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-.sticky-top { position: sticky; top: 0; z-index: 10; }
-.table thead th { background: linear-gradient(90deg,#ffffff,#f8f9fa); }
-.slot-lines { display:flex; flex-direction:column; gap:8px; align-items:center; }
-.slot-line { width:100%; height:48px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.25rem; background:#f3f4f6; box-shadow:0 2px 6px rgba(0,0,0,0.06); }
-.highlight { background: linear-gradient(90deg,#fff57a,#ffd54a); transition: all 0.4s ease; }
-.highlight .nama-large { font-size:1.25rem; font-weight:800; }
-.sticky-bottom-controls { position: fixed; left:0; right:0; bottom:0; background: rgba(255,255,255,0.9); border-top:1px solid #e9ecef; z-index: 1030; padding:8px 0; box-shadow: 0 -4px 16px rgba(0,0,0,0.04); }
-.table-responsive { max-height:65vh; overflow:auto; }
-td input[type="number"], td input[type="text"] { width:100%; box-sizing:border-box; border: none; background: transparent; padding:4px 6px; }
-td input[type="text"]:focus, td input[type="number"]:focus { outline: 1px dashed #6c757d; background:#fff; }
-.btn-group .btn { min-width:120px; }
-/* Highlight peserta terpilih */
-.highlight-terpilih {
-  background-color: #ffe066 !important; /* warna kuning terang */
-  transition: background-color 0.5s ease-in-out;
+body { 
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; 
 }
 
-.highlight-terpilih td.nama {
+.sticky-top { 
+  position: sticky; 
+  top: 0; 
+  z-index: 10; 
+}
+
+.table thead th { 
+  background: linear-gradient(90deg, #ffffff, #f8f9fa); 
+}
+
+/* Slot machine styling */
+.slot-lines { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px; 
+  align-items: center; 
+}
+
+.slot-line { 
+  width: 100%; 
+  height: 48px; 
+  border-radius: 8px; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  font-weight: 700; 
+  font-size: 1.25rem; 
+  background: #f3f4f6; 
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); 
+}
+
+/* Winner highlight styling */
+.highlight-selected {
+  background-color: #ffe066 !important; 
+  transition: background-color 0.5s ease-in-out;
   font-weight: bold;
   font-size: 1.2em;
   color: #000;
 }
+
+/* Sticky bottom controls */
+.sticky-bottom-controls { 
+  position: fixed; 
+  left: 0; 
+  right: 0; 
+  bottom: 0; 
+  background: rgba(255, 255, 255, 0.9); 
+  border-top: 1px solid #e9ecef; 
+  z-index: 1030; 
+  padding: 8px 0; 
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04); 
+}
+
+/* Table scrolling */
+.table-responsive { 
+  max-height: 65vh; 
+  overflow: auto; 
+}
+
+/* Input styling */
+td input[type="number"], 
+td input[type="text"] { 
+  width: 100%; 
+  box-sizing: border-box; 
+  border: none; 
+  background: transparent; 
+  padding: 4px 6px; 
+}
+
+td input[type="text"]:focus, 
+td input[type="number"]:focus { 
+  outline: 1px dashed #6c757d; 
+  background: #fff; 
+}
+
+/* Button group styling */
+.btn-group .btn { 
+  min-width: 120px; 
+}/* CSS Document */
 

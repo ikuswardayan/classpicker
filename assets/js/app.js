@@ -1,312 +1,359 @@
-// app.js - handles data, UI, LocalStorage and undian logic
+// app.js - handles data, UI, LocalStorage and random draw logic
 $(function(){
-  const LS_KEY = "class_spinner_data_v1";
-  const SAMPLE = "sample.json";
+  const STORAGE_KEY = "classpicker_data_v1";
+  const SAMPLE_FILE = "sample.json";
 
-  function loadSampleToLocal(){
-    return $.getJSON(SAMPLE).then(data=>{
-      localStorage.setItem(LS_KEY, JSON.stringify(data));
+  // Load sample data from JSON file and save to LocalStorage
+  function loadSampleToStorage(){
+    return $.getJSON(SAMPLE_FILE).then(data => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       return data;
     });
   }
 
-  function getData(){
-    const raw = localStorage.getItem(LS_KEY);
-    if(!raw) return null;
-    try { return JSON.parse(raw); } catch(e){ return null; }
+  // Get participant data from LocalStorage
+  function getParticipantData(){
+    const rawData = localStorage.getItem(STORAGE_KEY);
+    if(!rawData) return null;
+    try { 
+      return JSON.parse(rawData); 
+    } catch(e){ 
+      return null; 
+    }
   }
 
-  function saveData(data){
-    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  // Save participant data to LocalStorage
+  function saveParticipantData(data){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }
 
-  function ensureData(){
-    let data = getData();
+  // Ensure data exists, load sample if not
+  function ensureDataExists(){
+    let data = getParticipantData();
     if(!data){
-      return loadSampleToLocal().then(d=>{
-        renderTable(d);
+      return loadSampleToStorage().then(loadedData => {
+        renderParticipantTable(loadedData);
       });
     } else {
-      renderTable(data);
+      renderParticipantTable(data);
     }
   }
 
-  function renderTable(data){
-    const $tbody = $("#daftar_seluruh_peserta tbody");
+  // Render participant table
+  function renderParticipantTable(data){
+    const $tbody = $("#participantTable tbody");
     $tbody.empty();
-    data.forEach((row, idx)=>{
-      const tr = $("<tr>").attr("data-id", row.id);
-      tr.append(`<td class="align-middle">${idx+1}</td>`);
-      tr.append(`<td class="align-middle"><input class="form-control form-control-sm nrp" data-field="nrp" value="${escapeHtml(row.nrp)}"></td>`);
-      tr.append(`<td class="align-middle"><input class="form-control form-control-sm nama" data-field="nama" value="${escapeHtml(row.nama)}"></td>`);
-      tr.append(`<td class="text-center align-middle"><input type="checkbox" class="ck_hadir" ${row.ck_hadir ? "checked":""}></td>`);
-      tr.append(`<td class="text-center align-middle"><input type="checkbox" class="ck_dilibatkan" ${row.ck_dilibatkan ? "checked":""}></td>`);
-      tr.append(`<td class="text-center align-middle jumlah_terpilih">${row.jumlah_terpilih}</td>`);
-      tr.append(`<td class="align-middle"><input type="number" min="0" class="form-control form-control-sm jumlah_menjawab" value="${row.jumlah_menjawab}"></td>`);
-      tr.append(`<td class="align-middle"><input type="number" min="0" class="form-control form-control-sm jumlah_jawaban_benar" value="${row.jumlah_jawaban_benar}"></td>`);
-      tr.append(`<td class="align-middle text-end"><button class="btn btn-sm btn-outline-danger btn-hapus"><i class="bi bi-trash-fill"></i></button></td>`);
-      $tbody.append(tr);
+    
+    data.forEach((participant, index) => {
+      const $row = $("<tr>").attr("data-id", participant.id);
+      $row.append(`<td class="align-middle">${index + 1}</td>`);
+      $row.append(`<td class="align-middle"><input class="form-control form-control-sm participant-id-number" data-field="nrp" value="${escapeHtml(participant.nrp)}"></td>`);
+      $row.append(`<td class="align-middle"><input class="form-control form-control-sm participant-name" data-field="nama" value="${escapeHtml(participant.nama)}"></td>`);
+      $row.append(`<td class="text-center align-middle"><input type="checkbox" class="is-present" ${participant.ck_hadir ? "checked":""}></td>`);
+      $row.append(`<td class="text-center align-middle"><input type="checkbox" class="is-eligible" ${participant.ck_dilibatkan ? "checked":""}></td>`);
+      $row.append(`<td class="text-center align-middle times-selected">${participant.jumlah_terpilih}</td>`);
+      $row.append(`<td class="align-middle"><input type="number" min="0" class="form-control form-control-sm times-answered" value="${participant.jumlah_menjawab}"></td>`);
+      $row.append(`<td class="align-middle"><input type="number" min="0" class="form-control form-control-sm times-correct" value="${participant.jumlah_jawaban_benar}"></td>`);
+      $row.append(`<td class="align-middle text-end"><button class="btn btn-sm btn-outline-danger btn-delete"><i class="bi bi-trash-fill"></i></button></td>`);
+      $tbody.append($row);
     });
   }
 
-  function escapeHtml(s){ return (s+"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  // Escape HTML to prevent XSS
+  function escapeHtml(str){ 
+    return (str + "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); 
+  }
 
-  // update a single field then save
-  $("#daftar_seluruh_peserta").on("change keyup", "input,textarea", function(e){
-    const $tr = $(this).closest("tr");
-    const id = Number($tr.attr("data-id"));
-    let data = getData();
-    const row = data.find(r=>r.id===id);
-    const cls = $(this).attr("class");
+  // Update participant data when input changes
+  $("#participantTable").on("change keyup", "input,textarea", function(e){
+    const $row = $(this).closest("tr");
+    const participantId = Number($row.attr("data-id"));
+    let data = getParticipantData();
+    const participant = data.find(p => p.id === participantId);
+    
     if($(this).is(":checkbox")){
-      if($(this).hasClass("ck_hadir")) row.ck_hadir = $(this).prop("checked");
-      if($(this).hasClass("ck_dilibatkan")) row.ck_dilibatkan = $(this).prop("checked");
+      if($(this).hasClass("is-present")) {
+        participant.ck_hadir = $(this).prop("checked");
+      }
+      if($(this).hasClass("is-eligible")) {
+        participant.ck_dilibatkan = $(this).prop("checked");
+      }
     } else {
-      const field = $(this).data("field");
-      if(field) row[field] = $(this).val();
-      else if($(this).hasClass("jumlah_menjawab")) row.jumlah_menjawab = Number($(this).val())||0;
-      else if($(this).hasClass("jumlah_jawaban_benar")) row.jumlah_jawaban_benar = Number($(this).val())||0;
+      const fieldName = $(this).data("field");
+      if(fieldName) {
+        participant[fieldName] = $(this).val();
+      } else if($(this).hasClass("times-answered")) {
+        participant.jumlah_menjawab = Number($(this).val()) || 0;
+      } else if($(this).hasClass("times-correct")) {
+        participant.jumlah_jawaban_benar = Number($(this).val()) || 0;
+      }
     }
-    saveData(data);
-    renderTable(data); // re-render to reflect numbering and any formatting
+    
+    saveParticipantData(data);
+    renderParticipantTable(data);
   });
 
-  // delete single
-  $("#daftar_seluruh_peserta").on("click", ".btn-hapus", function(){
-    const $tr = $(this).closest("tr");
-    const id = Number($tr.attr("data-id"));
-    if(!confirm("Are you sure to delete this participat ??")) return;
-    let data = getData();
-    data = data.filter(r=>r.id!==id);
-    saveData(data);
-    renderTable(data);
+  // Delete single participant
+  $("#participantTable").on("click", ".btn-delete", function(){
+    const $row = $(this).closest("tr");
+    const participantId = Number($row.attr("data-id"));
+    
+    if(!confirm("Are you sure you want to delete this participant?")) return;
+    
+    let data = getParticipantData();
+    data = data.filter(p => p.id !== participantId);
+    saveParticipantData(data);
+    renderParticipantTable(data);
   });
 
-  // add new
-  $("#btn_tambahData").on("click", function(){
-    let data = getData() || [];
-    const newId = data.length ? Math.max(...data.map(d=>d.id))+1 : 1;
-    const baru = { id: newId, nrp: "", nama: "New Name", ck_hadir:true, ck_dilibatkan:true, jumlah_terpilih:0, jumlah_menjawab:0, jumlah_jawaban_benar:0 };
-    data.push(baru);
-    saveData(data);
-    renderTable(data);
-    // focus last input
-    setTimeout(()=>{ $(`#daftar_seluruh_peserta tbody tr[data-id='${newId}'] .nama`).focus(); },50);
+  // Add new participant
+  $("#btnAddParticipant").on("click", function(){
+    let data = getParticipantData() || [];
+    const newId = data.length ? Math.max(...data.map(p => p.id)) + 1 : 1;
+    const newParticipant = { 
+      id: newId, 
+      nrp: "", 
+      nama: "New Participant", 
+      ck_hadir: true, 
+      ck_dilibatkan: true, 
+      jumlah_terpilih: 0, 
+      jumlah_menjawab: 0, 
+      jumlah_jawaban_benar: 0 
+    };
+    
+    data.push(newParticipant);
+    saveParticipantData(data);
+    renderParticipantTable(data);
+    
+    // Focus on name input of newly added participant
+    setTimeout(() => { 
+      $(`#participantTable tbody tr[data-id='${newId}'] .participant-name`).focus(); 
+    }, 50);
   });
 
-  // reset data from sample.json
-  $("#btn_ResetData").on("click", function(){
-    if(!confirm("Resetting the data will overwrite the current data with sample.json. Continue?")) return;
-    loadSampleToLocal().then(d=>{
-      renderTable(d);
+  // Reset data from sample.json
+  $("#btnResetData").on("click", function(){
+    if(!confirm("Resetting will overwrite current data with sample.json. Continue?")) return;
+    
+    loadSampleToStorage().then(data => {
+      renderParticipantTable(data);
     });
   });
 
-  // delete all
-  $("#btn_HapusSemua").on("click", function(){
-    if(!confirm("Clear all participants ? Cant be undone")) return;
-    localStorage.removeItem(LS_KEY);
-    renderTable([]);
+  // Clear all participants
+  $("#btnClearAll").on("click", function(){
+    if(!confirm("Clear all participants? This cannot be undone.")) return;
+    
+    localStorage.removeItem(STORAGE_KEY);
+    renderParticipantTable([]);
   });
 
-	
-async function exportCSV() {
-/*
-  // Ambil data tabel
-  let csv = [];
-  document.querySelectorAll("#daftar_seluruh_peserta tr").forEach(tr => {
-    let row = [];
-    tr.querySelectorAll("th, td").forEach(td => {
-      let text = td.textContent.replace(/"/g, '""');
-      row.push('"' + text + '"');
-    });
-    csv.push(row.join(","));
-  });
-  let csvContent = csv.join("\n");
-*/
-    const data = getData() || [];
+  // Export to CSV with file picker
+  async function exportToCSV() {
+    const data = getParticipantData() || [];
     const headers = ["id","nrp","nama","ck_hadir","ck_dilibatkan","jumlah_terpilih","jumlah_menjawab","jumlah_jawaban_benar"];
-    const rows = data.map(r=> headers.map(h => {
-      let v = r[h];
-      if(typeof v === "boolean") v = v ? "1":"0";
-      return `"${String(v).replace(/"/g,'""')}"`;
+    const rows = data.map(participant => headers.map(header => {
+      let value = participant[header];
+      if(typeof value === "boolean") value = value ? "1" : "0";
+      return `"${String(value).replace(/"/g,'""')}"`;
     }).join(","));
-    const csvContent = [headers.join(","), ...rows].join("\n");	
+    const csvContent = [headers.join(","), ...rows].join("\n");
 
-	
-  try {
-    // Minta pengguna memilih nama file & lokasi
-    const handle = await window.showSaveFilePicker({
-      suggestedName: "participants.csv",
-      types: [{
-        description: "CSV Files",
-        accept: { "text/csv": [".csv"] }
-      }]
-    });
+    try {
+      // Ask user to choose filename and location
+      const fileHandle = await window.showSaveFilePicker({
+        suggestedName: "participants.csv",
+        types: [{
+          description: "CSV Files",
+          accept: { "text/csv": [".csv"] }
+        }]
+      });
 
-    // Tulis file ke lokasi yang dipilih
-    const writable = await handle.createWritable();
-    await writable.write(csvContent);
-    await writable.close();
+      // Write file to selected location
+      const writable = await fileHandle.createWritable();
+      await writable.write(csvContent);
+      await writable.close();
 
-    alert("File berhasil disimpan!");
-  } catch (err) {
-    console.log("Dibatalkan atau error:", err);
+      alert("File saved successfully!");
+    } catch (err) {
+      console.log("Cancelled or error:", err);
+    }
   }
-}	
-	
-  // Export CSV
-  $("#btn_ExportCSV").on("click", function(){
-	  exportCSV();
-/*	  
-    const data = getData() || [];
-    const headers = ["id","nrp","nama","ck_hadir","ck_dilibatkan","jumlah_terpilih","jumlah_menjawab","jumlah_jawaban_benar"];
-    const rows = data.map(r=> headers.map(h => {
-      let v = r[h];
-      if(typeof v === "boolean") v = v ? "1":"0";
-      return `"${String(v).replace(/"/g,'""')}"`;
-    }).join(","));
-    const csv = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "peserta_export.csv";
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-*/
+
+  // Export CSV button
+  $("#btnExportCSV").on("click", function(){
+    exportToCSV();
   });
 
   // Import CSV
   $("#fileImport").on("change", function(e){
-    const f = e.target.files[0];
-    if(!f) return;
+    const file = e.target.files[0];
+    if(!file) return;
+    
     const reader = new FileReader();
-    reader.onload = function(ev){
-      const txt = ev.target.result;
+    reader.onload = function(event){
+      const csvText = event.target.result;
       try {
-        const parsed = parseCSV(txt);
-        // parsed is array of objects if headers present
-        if(parsed.length){
-          // map to expected fields
-          const data = parsed.map((r, idx)=>({
-            id: Number(r.id) || (idx+1),
-            nrp: r.nrp || r.NRP || "",
-            nama: r.nama || r.NAMA || r.Nama || "",
-            ck_hadir: r.ck_hadir === "1" || r.ck_hadir === "true" || r.ck_hadir === "TRUE" || r.ck_hadir === true,
-            ck_dilibatkan: r.ck_dilibatkan === "1" || r.ck_dilibatkan === "true" || r.ck_dilibatkan === true,
-            jumlah_terpilih: Number(r.jumlah_terpilih) || 0,
-            jumlah_menjawab: Number(r.jumlah_menjawab) || 0,
-            jumlah_jawaban_benar: Number(r.jumlah_jawaban_benar) || 0
+        const parsedData = parseCSV(csvText);
+        
+        if(parsedData.length){
+          // Map CSV columns to expected fields
+          const data = parsedData.map((row, idx) => ({
+            id: Number(row.id) || (idx + 1),
+            nrp: row.nrp || row.NRP || "",
+            nama: row.nama || row.NAMA || row.Nama || "",
+            ck_hadir: row.ck_hadir === "1" || row.ck_hadir === "true" || row.ck_hadir === "TRUE" || row.ck_hadir === true,
+            ck_dilibatkan: row.ck_dilibatkan === "1" || row.ck_dilibatkan === "true" || row.ck_dilibatkan === true,
+            jumlah_terpilih: Number(row.jumlah_terpilih) || 0,
+            jumlah_menjawab: Number(row.jumlah_menjawab) || 0,
+            jumlah_jawaban_benar: Number(row.jumlah_jawaban_benar) || 0
           }));
-          saveData(data);
-          renderTable(data);
-          alert("Import CSV berhasil.");
+          
+          saveParticipantData(data);
+          renderParticipantTable(data);
+          alert("CSV imported successfully.");
         }
+
       } catch(err){
-        alert("Gagal mengimpor CSV: "+err.message);
+        alert("Failed to import CSV: " + err.message);
       }
     };
-    reader.readAsText(f, "UTF-8");
-    // reset input
+    reader.readAsText(file, "UTF-8");
+    
+    // Reset input
     $(this).val("");
   });
 
-  // parse simple CSV into array of objects (assumes header row)
-  function parseCSV(txt){
-    const lines = txt.split(/\r?\n/).filter(l=>l.trim()!=="");
-    if(lines.length===0) return [];
-    const header = splitCSVLine(lines[0]);
-    const arr = [];
-    for(let i=1;i<lines.length;i++){
-      const parts = splitCSVLine(lines[i]);
-      const obj = {};
-      for(let j=0;j<header.length;j++){
-        obj[ header[j].trim() ] = parts[j] !== undefined ? parts[j] : "";
+  // Parse CSV into array of objects (assumes header row)
+  function parseCSV(csvText){
+    const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== "");
+    if(lines.length === 0) return [];
+    
+    const headers = splitCSVLine(lines[0]);
+    const dataArray = [];
+    
+    for(let i = 1; i < lines.length; i++){
+      const values = splitCSVLine(lines[i]);
+      const rowObject = {};
+      for(let j = 0; j < headers.length; j++){
+        rowObject[headers[j].trim()] = values[j] !== undefined ? values[j] : "";
       }
-      arr.push(obj);
+      dataArray.push(rowObject);
     }
-    return arr;
+    return dataArray;
   }
 
+  // Split CSV line respecting quoted fields
   function splitCSVLine(line){
-    // naive CSV splitter that respects quoted fields
-    const res = [];
-    let cur = "", inQuotes=false;
-    for(let i=0;i<line.length;i++){
-      const ch = line[i];
-      if(ch === '"' ){
-        if(inQuotes && line[i+1]==='"'){ cur += '"'; i++; continue; }
-        inQuotes = !inQuotes; continue;
+    const result = [];
+    let currentField = "";
+    let insideQuotes = false;
+    
+    for(let i = 0; i < line.length; i++){
+      const char = line[i];
+      
+      if(char === '"'){
+        if(insideQuotes && line[i + 1] === '"'){
+          currentField += '"';
+          i++;
+          continue;
+        }
+        insideQuotes = !insideQuotes;
+        continue;
       }
-      if(ch === ',' && !inQuotes){ res.push(cur); cur = ""; continue;}
-      cur += ch;
+      
+      if(char === ',' && !insideQuotes){
+        result.push(currentField);
+        currentField = "";
+        continue;
+      }
+      
+      currentField += char;
     }
-    res.push(cur);
-    return res;
+    result.push(currentField);
+    return result;
   }
 
-  // btn_reset: set ck_dilibatkan = ck_hadir for all rows
-  $("#btn_reset").on("click", function(){
-    const data = getData() || [];
-    data.forEach(r => r.ck_dilibatkan = !!r.ck_hadir);
-    saveData(data);
-    renderTable(data);
+  // Reset eligibility: set is_eligible = is_present for all participants
+  $("#btnResetEligibility").on("click", function(){
+    const data = getParticipantData() || [];
+    data.forEach(participant => {
+      participant.ck_dilibatkan = !!participant.ck_hadir;
+    });
+    saveParticipantData(data);
+    renderParticipantTable(data);
   });
 
-  // Undian logic
-  $("#btn_undian").on("click", function(){
-    const data = getData() || [];
-    const candidates = data.filter(r => r.ck_dilibatkan);
-    if(candidates.length === 0){ alert("Tidak ada peserta yang dilibatkan untuk undian."); return; }
-    // show slot modal
+  // Random draw logic
+  $("#btnDrawWinner").on("click", function(){
+    const data = getParticipantData() || [];
+    const eligibleCandidates = data.filter(p => p.ck_dilibatkan);
+    
+    if(eligibleCandidates.length === 0){
+      alert("No eligible participants for the draw.");
+      return;
+    }
+    
+    // Show slot machine modal
     $("#modalSlot").modal("show");
-    // slot animation: cycle random names for ~2200ms then pick real one
-    const slotEls = [$("#slot1"), $("#slot2"), $("#slot3")];
-    const namePool = candidates.map(c => c.nama || c.nrp);
-    let intervals = [];
-    slotEls.forEach((el, idx)=>{
-      intervals[idx] = setInterval(()=> {
-        const n = namePool[Math.floor(Math.random()*namePool.length)];
-        el.text(n);
-      }, 80 + idx*20);
+    
+    // Slot animation: cycle random names for ~2200ms then pick winner
+    const slotElements = [$("#slot1"), $("#slot2"), $("#slot3")];
+    const namePool = eligibleCandidates.map(p => p.nama || p.nrp);
+    let animationIntervals = [];
+    
+    slotElements.forEach((element, idx) => {
+      animationIntervals[idx] = setInterval(() => {
+        const randomName = namePool[Math.floor(Math.random() * namePool.length)];
+        element.text(randomName);
+      }, 80 + idx * 20);
     });
-    // after delay pick winner
-    setTimeout(()=>{
-      // pick random candidate weighted equally
-      const winner = candidates[Math.floor(Math.random()*candidates.length)];
-      // stop intervals and set final
-      intervals.forEach(i=>clearInterval(i));
+    
+    // After 2200ms, select winner
+    setTimeout(() => {
+      // Pick random winner from eligible candidates
+      const winnerIndex = Math.floor(Math.random() * eligibleCandidates.length);
+      const winner = eligibleCandidates[winnerIndex];
+      
+      // Stop all animations
+      animationIntervals.forEach(interval => clearInterval(interval));
+      
+      // Display winner in all slots
       $("#slot1").text(winner.nama);
       $("#slot2").text(winner.nama);
       $("#slot3").text(winner.nama);
       $("#slotResult").text(`Selected: ${winner.nama} (${winner.nrp})`);
-      // update data: increment jumlah_terpilih and uncheck dilibatkan
-      const full = getData();
-      const row = full.find(r=>r.id === winner.id);
-      if(row){
-        row.jumlah_terpilih = Number(row.jumlah_terpilih || 0) + 1;
-        row.ck_dilibatkan = false;
-        saveData(full);
-        renderTable(full);
-        // highlight row and scroll into view
-        const $tr = $(`#daftar_seluruh_peserta tbody tr[data-id='${winner.id}']`);
-        $("html,body").animate({ scrollTop: $tr.offset().top - 80 }, 400);
-		  
-		// fokus scroll ke baris peserta terpilih
-    	$tr[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-//		$tr.addClass("highlight-terpilih");
-		  $tr.find("td").addClass("highlight-terpilih");
-		  
-        setTimeout(()=> $tr.removeClass("highlight"), 4000);
+      
+      // Update participant data
+      const fullData = getParticipantData();
+      const selectedParticipant = fullData.find(p => p.id === winner.id);
+      
+      if(selectedParticipant){
+        selectedParticipant.jumlah_terpilih = Number(selectedParticipant.jumlah_terpilih || 0) + 1;
+        selectedParticipant.ck_dilibatkan = false;  // Temporal exclusion
+        saveParticipantData(fullData);
+        renderParticipantTable(fullData);
+        
+        // Highlight and scroll to winner's row
+        const $winnerRow = $(`#participantTable tbody tr[data-id='${winner.id}']`);
+        
+        // Smooth scroll to winner
+        $winnerRow[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Add highlight class
+        $winnerRow.find("td").addClass("highlight-selected");
+        
+        // Remove highlight after 4 seconds
+        setTimeout(() => $winnerRow.find("td").removeClass("highlight-selected"), 4000);
       }
     }, 2200);
   });
 
-  // when modal hides, clear texts
+  // When modal hides, clear slot texts
   $("#modalSlot").on("hidden.bs.modal", function(){
-    $("#slot1,#slot2,#slot3,#slotResult").text("");
+    $("#slot1, #slot2, #slot3, #slotResult").text("");
   });
 
-  // initial
-  ensureData();
+  // Initialize application
+  ensureDataExists();
 });
