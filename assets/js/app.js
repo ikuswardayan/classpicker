@@ -1,166 +1,136 @@
-// app.js - handles data, UI, LocalStorage and random draw logic
+// app.js - handles data, UI, LocalStorage and draw logic
 $(function(){
-  const STORAGE_KEY = "classpicker_data_v1";
+  const STORAGE_KEY = "class_spinner_data_v1";
   const SAMPLE_FILE = "sample.json";
 
-  // Load sample data from JSON file and save to LocalStorage
-  function loadSampleToStorage(){
-    return $.getJSON(SAMPLE_FILE).then(data => {
+  function loadSampleToLocal(){
+    return $.getJSON(SAMPLE_FILE).then(data=>{
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       return data;
     });
   }
 
-  // Get participant data from LocalStorage
-  function getParticipantData(){
-    const rawData = localStorage.getItem(STORAGE_KEY);
-    if(!rawData) return null;
-    try { 
-      return JSON.parse(rawData); 
-    } catch(e){ 
-      return null; 
-    }
+  function getData(){
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    try { return JSON.parse(raw); } catch(e){ return null; }
   }
 
-  // Save participant data to LocalStorage
-  function saveParticipantData(data){
+  function saveData(data){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }
 
-  // Ensure data exists, load sample if not
-  function ensureDataExists(){
-    let data = getParticipantData();
+  function ensureData(){
+    let data = getData();
     if(!data){
-      return loadSampleToStorage().then(loadedData => {
-        renderParticipantTable(loadedData);
+      return loadSampleToLocal().then(loadedData=>{
+        renderTable(loadedData);
       });
     } else {
-      renderParticipantTable(data);
+      renderTable(data);
     }
   }
 
-  // Render participant table
-  function renderParticipantTable(data){
-    const $tbody = $("#participantTable tbody");
-    $tbody.empty();
-    
-    data.forEach((participant, index) => {
-      const $row = $("<tr>").attr("data-id", participant.id);
-      $row.append(`<td class="align-middle">${index + 1}</td>`);
-      $row.append(`<td class="align-middle"><input class="form-control form-control-sm participant-id-number" data-field="nrp" value="${escapeHtml(participant.nrp)}"></td>`);
-      $row.append(`<td class="align-middle"><input class="form-control form-control-sm participant-name" data-field="nama" value="${escapeHtml(participant.nama)}"></td>`);
-      $row.append(`<td class="text-center align-middle"><input type="checkbox" class="is-present" ${participant.ck_hadir ? "checked":""}></td>`);
-      $row.append(`<td class="text-center align-middle"><input type="checkbox" class="is-eligible" ${participant.ck_dilibatkan ? "checked":""}></td>`);
-      $row.append(`<td class="text-center align-middle times-selected">${participant.jumlah_terpilih}</td>`);
-      $row.append(`<td class="align-middle"><input type="number" min="0" class="form-control form-control-sm times-answered" value="${participant.jumlah_menjawab}"></td>`);
-      $row.append(`<td class="align-middle"><input type="number" min="0" class="form-control form-control-sm times-correct" value="${participant.jumlah_jawaban_benar}"></td>`);
-      $row.append(`<td class="align-middle text-end"><button class="btn btn-sm btn-outline-danger btn-delete"><i class="bi bi-trash-fill"></i></button></td>`);
-      $tbody.append($row);
+  function renderTable(data){
+    const $tableBody = $("#participantTable tbody");
+    $tableBody.empty();
+    data.forEach((row, index)=>{
+      const tableRow = $("<tr>").attr("data-id", row.id);
+      tableRow.append(`<td class="align-middle">${index+1}</td>`);
+      tableRow.append(`<td class="align-middle"><input class="form-control form-control-sm id-number-input" data-field="idNumber" value="${escapeHtml(row.idNumber)}"></td>`);
+      tableRow.append(`<td class="align-middle"><input class="form-control form-control-sm name-input" data-field="name" value="${escapeHtml(row.name)}"></td>`);
+      tableRow.append(`<td class="text-center align-middle"><input type="checkbox" class="check-present" ${row.isPresent ? "checked":""}></td>`);
+      tableRow.append(`<td class="text-center align-middle"><input type="checkbox" class="check-included" ${row.isIncluded ? "checked":""}></td>`);
+      tableRow.append(`<td class="text-center align-middle count-selected">${row.timesSelected}</td>`);
+      tableRow.append(`<td class="align-middle"><input type="number" min="0" class="form-control form-control-sm count-answered" value="${row.timesAnswered}"></td>`);
+      tableRow.append(`<td class="align-middle"><input type="number" min="0" class="form-control form-control-sm count-correct" value="${row.timesCorrect}"></td>`);
+      tableRow.append(`<td class="align-middle text-end"><button class="btn btn-sm btn-outline-danger btn-delete"><i class="bi bi-trash-fill"></i></button></td>`);
+      $tableBody.append(tableRow);
     });
   }
 
-  // Escape HTML to prevent XSS
-  function escapeHtml(str){ 
-    return (str + "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); 
-  }
+  function escapeHtml(str){ return (str+"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-  // Update participant data when input changes
+  // update a single field then save
   $("#participantTable").on("change keyup", "input,textarea", function(e){
-    const $row = $(this).closest("tr");
-    const participantId = Number($row.attr("data-id"));
-    let data = getParticipantData();
-    const participant = data.find(p => p.id === participantId);
-    
+    const $currentRow = $(this).closest("tr");
+    const rowId = Number($currentRow.attr("data-id"));
+    let data = getData();
+    const participantRow = data.find(record=>record.id===rowId);
+    const classList = $(this).attr("class");
     if($(this).is(":checkbox")){
-      if($(this).hasClass("is-present")) {
-        participant.ck_hadir = $(this).prop("checked");
-      }
-      if($(this).hasClass("is-eligible")) {
-        participant.ck_dilibatkan = $(this).prop("checked");
-      }
+      if($(this).hasClass("check-present")) participantRow.isPresent = $(this).prop("checked");
+      if($(this).hasClass("check-included")) participantRow.isIncluded = $(this).prop("checked");
     } else {
       const fieldName = $(this).data("field");
-      if(fieldName) {
-        participant[fieldName] = $(this).val();
-      } else if($(this).hasClass("times-answered")) {
-        participant.jumlah_menjawab = Number($(this).val()) || 0;
-      } else if($(this).hasClass("times-correct")) {
-        participant.jumlah_jawaban_benar = Number($(this).val()) || 0;
-      }
+      if(fieldName) participantRow[fieldName] = $(this).val();
+      else if($(this).hasClass("count-answered")) participantRow.timesAnswered = Number($(this).val())||0;
+      else if($(this).hasClass("count-correct")) participantRow.timesCorrect = Number($(this).val())||0;
     }
-    
-    saveParticipantData(data);
-    renderParticipantTable(data);
+    saveData(data);
+    renderTable(data); // re-render to reflect numbering and any formatting
   });
 
-  // Delete single participant
+  // delete single participant
   $("#participantTable").on("click", ".btn-delete", function(){
-    const $row = $(this).closest("tr");
-    const participantId = Number($row.attr("data-id"));
-    
-    if(!confirm("Are you sure you want to delete this participant?")) return;
-    
-    let data = getParticipantData();
-    data = data.filter(p => p.id !== participantId);
-    saveParticipantData(data);
-    renderParticipantTable(data);
+    const $currentRow = $(this).closest("tr");
+    const rowId = Number($currentRow.attr("data-id"));
+    if(!confirm("Are you sure to delete this participant?")) return;
+    let data = getData();
+    data = data.filter(record=>record.id!==rowId);
+    saveData(data);
+    renderTable(data);
   });
 
-  // Add new participant
+  // add new participant
   $("#btnAddParticipant").on("click", function(){
-    let data = getParticipantData() || [];
-    const newId = data.length ? Math.max(...data.map(p => p.id)) + 1 : 1;
+    let data = getData() || [];
+    const newId = data.length ? Math.max(...data.map(participant=>participant.id))+1 : 1;
     const newParticipant = { 
       id: newId, 
-      nrp: "", 
-      nama: "New Participant", 
-      ck_hadir: true, 
-      ck_dilibatkan: true, 
-      jumlah_terpilih: 0, 
-      jumlah_menjawab: 0, 
-      jumlah_jawaban_benar: 0 
+      idNumber: "", 
+      name: "New Name", 
+      isPresent: true, 
+      isIncluded: true, 
+      timesSelected: 0, 
+      timesAnswered: 0, 
+      timesCorrect: 0 
     };
-    
     data.push(newParticipant);
-    saveParticipantData(data);
-    renderParticipantTable(data);
-    
-    // Focus on name input of newly added participant
-    setTimeout(() => { 
-      $(`#participantTable tbody tr[data-id='${newId}'] .participant-name`).focus(); 
-    }, 50);
+    saveData(data);
+    renderTable(data);
+    // focus last input
+    setTimeout(()=>{ $(`#participantTable tbody tr[data-id='${newId}'] .name-input`).focus(); },50);
   });
 
-  // Reset data from sample.json
+  // reset data from sample.json
   $("#btnResetData").on("click", function(){
-    if(!confirm("Resetting will overwrite current data with sample.json. Continue?")) return;
-    
-    loadSampleToStorage().then(data => {
-      renderParticipantTable(data);
+    if(!confirm("Resetting the data will overwrite the current data with sample.json. Continue?")) return;
+    loadSampleToLocal().then(loadedData=>{
+      renderTable(loadedData);
     });
   });
 
-  // Clear all participants
+  // clear all participants
   $("#btnClearAll").on("click", function(){
-    if(!confirm("Clear all participants? This cannot be undone.")) return;
-    
+    if(!confirm("Clear all participants? Can't be undone")) return;
     localStorage.removeItem(STORAGE_KEY);
-    renderParticipantTable([]);
+    renderTable([]);
   });
 
-  // Export to CSV with file picker
-  async function exportToCSV() {
-    const data = getParticipantData() || [];
-    const headers = ["id","nrp","nama","ck_hadir","ck_dilibatkan","jumlah_terpilih","jumlah_menjawab","jumlah_jawaban_benar"];
-    const rows = data.map(participant => headers.map(header => {
+	
+  async function exportCSV() {
+    const data = getData() || [];
+    const headers = ["id","idNumber","name","isPresent","isIncluded","timesSelected","timesAnswered","timesCorrect"];
+    const rows = data.map(participant=> headers.map(header => {
       let value = participant[header];
-      if(typeof value === "boolean") value = value ? "1" : "0";
+      if(typeof value === "boolean") value = value ? "1":"0";
       return `"${String(value).replace(/"/g,'""')}"`;
     }).join(","));
-    const csvContent = [headers.join(","), ...rows].join("\n");
+    const csvContent = [headers.join(","), ...rows].join("\n");	
 
     try {
-      // Ask user to choose filename and location
+      // Ask user to choose filename & location
       const fileHandle = await window.showSaveFilePicker({
         suggestedName: "participants.csv",
         types: [{
@@ -169,191 +139,157 @@ $(function(){
         }]
       });
 
-      // Write file to selected location
+      // Write file to chosen location
       const writable = await fileHandle.createWritable();
       await writable.write(csvContent);
       await writable.close();
 
-      alert("File saved successfully!");
-    } catch (err) {
-      console.log("Cancelled or error:", err);
+      alert("File successfully saved!");
+    } catch (errorMessage) {
+      console.log("Cancelled or error:", errorMessage);
     }
-  }
-
-  // Export CSV button
+  }	
+	
+  // Export CSV
   $("#btnExportCSV").on("click", function(){
-    exportToCSV();
+    exportCSV();
   });
 
   // Import CSV
   $("#fileImport").on("change", function(e){
     const file = e.target.files[0];
     if(!file) return;
-    
     const reader = new FileReader();
     reader.onload = function(event){
-      const csvText = event.target.result;
+      const fileText = event.target.result;
       try {
-        const parsedData = parseCSV(csvText);
-        
+        const parsedData = parseCSV(fileText);
+        // parsedData is array of objects if headers present
         if(parsedData.length){
-          // Map CSV columns to expected fields
-          const data = parsedData.map((row, idx) => ({
-            id: Number(row.id) || (idx + 1),
-            nrp: row.nrp || row.NRP || "",
-            nama: row.nama || row.NAMA || row.Nama || "",
-            ck_hadir: row.ck_hadir === "1" || row.ck_hadir === "true" || row.ck_hadir === "TRUE" || row.ck_hadir === true,
-            ck_dilibatkan: row.ck_dilibatkan === "1" || row.ck_dilibatkan === "true" || row.ck_dilibatkan === true,
-            jumlah_terpilih: Number(row.jumlah_terpilih) || 0,
-            jumlah_menjawab: Number(row.jumlah_menjawab) || 0,
-            jumlah_jawaban_benar: Number(row.jumlah_jawaban_benar) || 0
+          // map to expected fields (support both old and new field names)
+          const data = parsedData.map((record, index)=>({
+            id: Number(record.id) || (index+1),
+            idNumber: record.idNumber || record.nrp || record.NRP || "",
+            name: record.name || record.nama || record.NAMA || record.Nama || "",
+            isPresent: record.isPresent === "1" || record.isPresent === "true" || record.isPresent === true || 
+                       record.ck_hadir === "1" || record.ck_hadir === "true" || record.ck_hadir === true,
+            isIncluded: record.isIncluded === "1" || record.isIncluded === "true" || record.isIncluded === true ||
+                        record.ck_dilibatkan === "1" || record.ck_dilibatkan === "true" || record.ck_dilibatkan === true,
+            timesSelected: Number(record.timesSelected || record.jumlah_terpilih) || 0,
+            timesAnswered: Number(record.timesAnswered || record.jumlah_menjawab) || 0,
+            timesCorrect: Number(record.timesCorrect || record.jumlah_jawaban_benar) || 0
           }));
-          
-          saveParticipantData(data);
-          renderParticipantTable(data);
-          alert("CSV imported successfully.");
+          saveData(data);
+          renderTable(data);
+          alert("CSV import successful.");
         }
-
-      } catch(err){
-        alert("Failed to import CSV: " + err.message);
+      } catch(errorMessage){
+        alert("Failed to import CSV: "+errorMessage.message);
       }
     };
     reader.readAsText(file, "UTF-8");
-    
-    // Reset input
+    // reset input
     $(this).val("");
   });
 
-  // Parse CSV into array of objects (assumes header row)
-  function parseCSV(csvText){
-    const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== "");
-    if(lines.length === 0) return [];
-    
-    const headers = splitCSVLine(lines[0]);
-    const dataArray = [];
-    
-    for(let i = 1; i < lines.length; i++){
-      const values = splitCSVLine(lines[i]);
-      const rowObject = {};
-      for(let j = 0; j < headers.length; j++){
-        rowObject[headers[j].trim()] = values[j] !== undefined ? values[j] : "";
+  // parse simple CSV into array of objects (assumes header row)
+  function parseCSV(text){
+    const lines = text.split(/\r?\n/).filter(line=>line.trim()!=="");
+    if(lines.length===0) return [];
+    const headerRow = splitCSVLine(lines[0]);
+    const resultArray = [];
+    for(let lineIndex=1; lineIndex<lines.length; lineIndex++){
+      const parts = splitCSVLine(lines[lineIndex]);
+      const record = {};
+      for(let columnIndex=0; columnIndex<headerRow.length; columnIndex++){
+        record[ headerRow[columnIndex].trim() ] = parts[columnIndex] !== undefined ? parts[columnIndex] : "";
       }
-      dataArray.push(rowObject);
+      resultArray.push(record);
     }
-    return dataArray;
+    return resultArray;
   }
 
-  // Split CSV line respecting quoted fields
   function splitCSVLine(line){
+    // naive CSV splitter that respects quoted fields
     const result = [];
-    let currentField = "";
-    let insideQuotes = false;
-    
-    for(let i = 0; i < line.length; i++){
-      const char = line[i];
-      
-      if(char === '"'){
-        if(insideQuotes && line[i + 1] === '"'){
-          currentField += '"';
-          i++;
-          continue;
-        }
-        insideQuotes = !insideQuotes;
-        continue;
+    let current = "", inQuotes=false;
+    for(let charIndex=0; charIndex<line.length; charIndex++){
+      const char = line[charIndex];
+      if(char === '"' ){
+        if(inQuotes && line[charIndex+1]==='"'){ current += '"'; charIndex++; continue; }
+        inQuotes = !inQuotes; continue;
       }
-      
-      if(char === ',' && !insideQuotes){
-        result.push(currentField);
-        currentField = "";
-        continue;
-      }
-      
-      currentField += char;
+      if(char === ',' && !inQuotes){ result.push(current); current = ""; continue;}
+      current += char;
     }
-    result.push(currentField);
+    result.push(current);
     return result;
   }
 
-  // Reset eligibility: set is_eligible = is_present for all participants
-  $("#btnResetEligibility").on("click", function(){
-    const data = getParticipantData() || [];
-    data.forEach(participant => {
-      participant.ck_dilibatkan = !!participant.ck_hadir;
-    });
-    saveParticipantData(data);
-    renderParticipantTable(data);
+  // btnResetSelection: set isIncluded = isPresent for all rows
+  $("#btnResetSelection").on("click", function(){
+    const data = getData() || [];
+    data.forEach(participant => participant.isIncluded = !!participant.isPresent);
+    saveData(data);
+    renderTable(data);
   });
 
-  // Random draw logic
-  $("#btnDrawWinner").on("click", function(){
-    const data = getParticipantData() || [];
-    const eligibleCandidates = data.filter(p => p.ck_dilibatkan);
-    
-    if(eligibleCandidates.length === 0){
-      alert("No eligible participants for the draw.");
-      return;
+  // Draw/Lottery logic
+  $("#btnStartDraw").on("click", function(){
+    const data = getData() || [];
+    const eligibleCandidates = data.filter(participant => participant.isIncluded);
+    if(eligibleCandidates.length === 0){ 
+      alert("No participants are included for the draw."); 
+      return; 
     }
-    
-    // Show slot machine modal
+    // show slot modal
     $("#modalSlot").modal("show");
-    
-    // Slot animation: cycle random names for ~2200ms then pick winner
+    // slot animation: cycle random names for ~2200ms then pick real one
     const slotElements = [$("#slot1"), $("#slot2"), $("#slot3")];
-    const namePool = eligibleCandidates.map(p => p.nama || p.nrp);
+    const namePool = eligibleCandidates.map(candidate => candidate.name || candidate.idNumber);
     let animationIntervals = [];
-    
-    slotElements.forEach((element, idx) => {
-      animationIntervals[idx] = setInterval(() => {
-        const randomName = namePool[Math.floor(Math.random() * namePool.length)];
+    slotElements.forEach((element, slotIndex)=>{
+      animationIntervals[slotIndex] = setInterval(()=> {
+        const randomName = namePool[Math.floor(Math.random()*namePool.length)];
         element.text(randomName);
-      }, 80 + idx * 20);
+      }, 80 + slotIndex*20);
     });
-    
-    // After 2200ms, select winner
-    setTimeout(() => {
-      // Pick random winner from eligible candidates
-      const winnerIndex = Math.floor(Math.random() * eligibleCandidates.length);
-      const winner = eligibleCandidates[winnerIndex];
-      
-      // Stop all animations
-      animationIntervals.forEach(interval => clearInterval(interval));
-      
-      // Display winner in all slots
-      $("#slot1").text(winner.nama);
-      $("#slot2").text(winner.nama);
-      $("#slot3").text(winner.nama);
-      $("#slotResult").text(`Selected: ${winner.nama} (${winner.nrp})`);
-      
-      // Update participant data
-      const fullData = getParticipantData();
-      const selectedParticipant = fullData.find(p => p.id === winner.id);
-      
-      if(selectedParticipant){
-        selectedParticipant.jumlah_terpilih = Number(selectedParticipant.jumlah_terpilih || 0) + 1;
-        selectedParticipant.ck_dilibatkan = false;  // Temporal exclusion
-        saveParticipantData(fullData);
-        renderParticipantTable(fullData);
-        
-        // Highlight and scroll to winner's row
-        const $winnerRow = $(`#participantTable tbody tr[data-id='${winner.id}']`);
-        
-        // Smooth scroll to winner
-        $winnerRow[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
-        // Add highlight class
-        $winnerRow.find("td").addClass("highlight-selected");
-        
-        // Remove highlight after 4 seconds
-        setTimeout(() => $winnerRow.find("td").removeClass("highlight-selected"), 4000);
+    // after delay pick winner
+    setTimeout(()=>{
+      // pick random candidate weighted equally
+      const winnerParticipant = eligibleCandidates[Math.floor(Math.random()*eligibleCandidates.length)];
+      // stop intervals and set final
+      animationIntervals.forEach(interval=>clearInterval(interval));
+      $("#slot1").text(winnerParticipant.name);
+      $("#slot2").text(winnerParticipant.name);
+      $("#slot3").text(winnerParticipant.name);
+      $("#slotResult").text(`Selected: ${winnerParticipant.name} (${winnerParticipant.idNumber})`);
+      // update data: increment timesSelected and uncheck isIncluded
+      const fullData = getData();
+      const selectedRow = fullData.find(record=>record.id === winnerParticipant.id);
+      if(selectedRow){
+        selectedRow.timesSelected = Number(selectedRow.timesSelected || 0) + 1;
+        selectedRow.isIncluded = false;
+        saveData(fullData);
+        renderTable(fullData);
+        // highlight row and scroll into view
+        const $selectedRow = $(`#participantTable tbody tr[data-id='${winnerParticipant.id}']`);
+        $("html,body").animate({ scrollTop: $selectedRow.offset().top - 80 }, 400);
+		  
+        // focus scroll to selected participant row
+        $selectedRow[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        $selectedRow.find("td").addClass("highlight-selected");
+		  
+        setTimeout(()=> $selectedRow.removeClass("highlight"), 4000);
       }
     }, 2200);
   });
 
-  // When modal hides, clear slot texts
+  // when modal hides, clear texts
   $("#modalSlot").on("hidden.bs.modal", function(){
-    $("#slot1, #slot2, #slot3, #slotResult").text("");
+    $("#slot1,#slot2,#slot3,#slotResult").text("");
   });
 
-  // Initialize application
-  ensureDataExists();
+  // initial load
+  ensureData();
 });
